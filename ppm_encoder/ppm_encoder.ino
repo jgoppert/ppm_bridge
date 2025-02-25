@@ -129,9 +129,10 @@ void setup()
 }
 
 void loop() {
-  delay(20);
+  // unsigned long startTime = micros();
+  // delay(20);
   int now = millis();
-  //Serial.println(now);
+  // Serial.println(now);
 
   size_t bytes_read = 0;
   size_t bytes_avail = Serial.available();
@@ -154,7 +155,7 @@ void loop() {
   // decode message
   for (int i=0;i<bytes_read;i++) {
     uint8_t curr_byte = buf[i];
-    //Serial.print("byte: ");
+    // Serial.print("byte: ");
     //Serial.println(curr_byte);
     if (decode_index == 0) { // looking for first byte of header
       if (curr_byte == 255) {
@@ -193,7 +194,15 @@ void loop() {
         }
         time_last = now;
         // Serial.println();
-    
+
+        // //Check Latency
+        // unsigned long endTime = micros();
+        // float latency = endTime- startTime;
+        // Serial.print("Latency (ms): ");
+        // Serial.println(latency / 1000);
+
+
+
       } else {
         //Serial.println("checksum failed: ");
         //Serial.println(sum);
@@ -206,4 +215,5 @@ void loop() {
     //Serial.print("decode index: ");
     //Serial.println(decode_index);
   }
+
 }

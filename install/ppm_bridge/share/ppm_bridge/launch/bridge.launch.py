@@ -1,1 +1,0 @@
-/home/wsribunm/nvp_ros2_ws/src/ppm_bridge/launch/bridge.launch.py

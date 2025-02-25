@@ -63,12 +63,13 @@ class MinimalSubscriber : public rclcpp::Node
       RCLCPP_INFO(this->get_logger(), "controller id: %s", m_controller_id_param_str.c_str());
       if (m_controller_id_param_str == "taranis"){
 
-        m_servo_data.data[0] = std::clamp(-500.0 * msg->axes[0] + 1500.0, 1000.0, 2000.0);
-        m_servo_data.data[1] = std::clamp(500.0 * msg->axes[1] + 1500.0, 1000.0, 2000.0);
-        m_servo_data.data[2] = std::clamp(-500.0 * msg->axes[2] + 1500.0, 1000.0, 2000.0);
-        m_servo_data.data[3] = std::clamp(500.0 * msg->axes[3] + 1500.0, 1000.0, 2000.0);
+        m_servo_data.data[0] = std::clamp(-500.0 * msg->axes[0] + 1500.0, 1000.0, 2000.0); // joy "+1" is zero throttle , joy "-1" is full throttle
+        m_servo_data.data[1] = std::clamp(500.0 * msg->axes[1] + 1500.0, 1000.0, 2000.0); // joy "+1" is roll left, joy "-1" is roll right
+        m_servo_data.data[2] = std::clamp(-500.0 * msg->axes[2] + 1500.0, 1000.0, 2000.0); // joy "+1" is elev down (pitch up) [needs verification]
+        m_servo_data.data[3] = std::clamp(500.0 * msg->axes[3] + 1500.0, 1000.0, 2000.0); // left turn is positive joy
         m_servo_data.data[4] = std::clamp(1000.0 * msg->axes[4] + 2000.0, 1000.0, 2000.0);
         
+        // Taranis switch-type mode handling
         if (msg->axes[5] > 0){
           m_servo_data.data[0] = a_servo_data.data[0];
           m_servo_data.data[1] = a_servo_data.data[1];
@@ -79,14 +80,30 @@ class MinimalSubscriber : public rclcpp::Node
       }
       // else, this will work with f310 logitech
       else {
+        // button-type mode handling
+        if (msg->buttons[0] == 1 && !toggle_mode_switch_){
+          is_auto_mode_ = !is_auto_mode_;
+          toggle_mode_switch_ = true;
+        } else if (msg->buttons[0] == 0){
+          toggle_mode_switch_ = false; // reset button switch when released
+        }
+
         m_servo_data.data[0] = std::clamp(1000.0 * msg->axes[1] + 1000, 1000.0, 2000.0);
         m_servo_data.data[1] = std::clamp(500.0 * msg->axes[3] + 1500, 1000.0, 2000.0);
         m_servo_data.data[2] = std::clamp(500.0 * msg->axes[4] + 1500, 1000.0, 2000.0);
         m_servo_data.data[3] = std::clamp(500.0 * msg->axes[0] + 1500, 1000.0, 2000.0);
-        m_servo_data.data[4] = std::clamp(1000.0 * msg->axes[2] + 2000, 1000.0, 2000.0);
+        m_servo_data.data[4] = std::clamp(1000.0 * msg->axes[2] + 2000, 1000.0, 2000.0); // stabilizer mode
+        
+        // Logitech f310 mode switch using "A" button
+        if (is_auto_mode_){
+          m_servo_data.data[0] = a_servo_data.data[0];
+          m_servo_data.data[1] = a_servo_data.data[1];
+          m_servo_data.data[2] = a_servo_data.data[2];
+          m_servo_data.data[3] = a_servo_data.data[3];
+          m_servo_data.data[4] = a_servo_data.data[4];
+        }
       }
 
-     
       uint16_t cksum = 0;
       for (int i=0;i<5;i++) {
         cksum += m_servo_data.data[i];
@@ -112,8 +129,8 @@ class MinimalSubscriber : public rclcpp::Node
     }
      void auto_callback(const sensor_msgs::msg::Joy::SharedPtr msg)
     {
-      a_servo_data.data[0] = std::clamp(1000.0 * (msg->axes[0]) + 1000, 1000.0, 2000.0);
-      a_servo_data.data[1] = std::clamp(500.0 * msg->axes[1] + 1500, 1000.0, 2000.0);
+      a_servo_data.data[0] = std::clamp(1000.0 * (msg->axes[0]) + 1000, 1000.0, 2000.0); // joy[0] from 0 to 1 in percentage
+      a_servo_data.data[1] = std::clamp(500.0 * msg->axes[1] + 1500, 1000.0, 2000.0); //
       a_servo_data.data[2] = std::clamp(-500.0 * msg->axes[2] + 1500, 1000.0, 2000.0);
       a_servo_data.data[3] = std::clamp(500.0 * msg->axes[3] + 1500, 1000.0, 2000.0);
       a_servo_data.data[4] = 1900.0;//std::clamp(msg->axes[4] + 1900, 1000.0f, 2000.0f); // should force it into stabilize mode
@@ -128,7 +145,10 @@ class MinimalSubscriber : public rclcpp::Node
     asio::serial_port m_port;
     servo_data_t m_servo_data;
     servo_data_t a_servo_data;
-      // 
+    
+    // Joy button mode handling for Logitech
+    bool is_auto_mode_;
+    bool toggle_mode_switch_;
 
     u_int8_t m_out_buf[2048];
     rclcpp::TimerBase::SharedPtr m_timer;
