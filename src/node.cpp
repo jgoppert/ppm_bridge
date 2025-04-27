@@ -131,7 +131,7 @@ class MinimalSubscriber : public rclcpp::Node
     {
       a_servo_data.data[0] = std::clamp(1000.0 * (msg->axes[0]) + 1000, 1000.0, 2000.0); // joy[0] from 0 to 1 in percentage
       a_servo_data.data[1] = std::clamp(500.0 * msg->axes[1] + 1500, 1000.0, 2000.0); //
-      a_servo_data.data[2] = std::clamp(-500.0 * msg->axes[2] + 1500, 1000.0, 2000.0);
+      a_servo_data.data[2] = std::clamp(-500.0 * msg->axes[2] + 1500, 1000.0, 2000.0); // joy "+1.0" = elev down (pitch up)
       a_servo_data.data[3] = std::clamp(500.0 * msg->axes[3] + 1500, 1000.0, 2000.0);
       a_servo_data.data[4] = 1900.0;//std::clamp(msg->axes[4] + 1900, 1000.0f, 2000.0f); // should force it into stabilize mode
     }
