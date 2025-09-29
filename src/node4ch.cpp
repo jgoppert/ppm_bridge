@@ -3,6 +3,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "std_msgs/msg/u_int16_multi_array.hpp"
 #include "sensor_msgs/msg/joy.hpp"
 #include <boost/asio.hpp> 
 using namespace boost;
@@ -34,6 +35,8 @@ class MinimalSubscriber : public rclcpp::Node
       a_subscription = this->create_subscription<sensor_msgs::msg::Joy>(
       "auto_joy_throttle", 10, std::bind(&MinimalSubscriber::auto_callback, this, _1));
       m_pub_status = this->create_publisher<std_msgs::msg::String>("status", 10);
+      joy_pub_status = this->create_publisher<std_msgs::msg::UInt16MultiArray>("joy_serial_status", 10);
+
 
       auto get_status =
       [this]() -> void
@@ -126,6 +129,16 @@ class MinimalSubscriber : public rclcpp::Node
           m_servo_data.data[4]);
       status.data = std::string(buf);
       m_pub_status->publish(status);
+
+      std_msgs::msg::UInt16MultiArray joy_arr; //joy message to publish to Arduino
+      joy_arr.data = {
+        m_servo_data.data[0],
+          m_servo_data.data[1],
+          m_servo_data.data[2],
+          m_servo_data.data[3],
+          m_servo_data.data[4]};
+      joy_pub_status->publish(joy_arr);
+
     }
      void auto_callback(const sensor_msgs::msg::Joy::SharedPtr msg)
     {
@@ -141,6 +154,8 @@ class MinimalSubscriber : public rclcpp::Node
     rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr a_subscription;
 
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr m_pub_status;
+    rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr joy_pub_status;
+
     asio::io_service m_io;
     asio::serial_port m_port;
     servo_data_t m_servo_data;
