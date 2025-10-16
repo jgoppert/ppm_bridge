@@ -121,32 +121,32 @@ class MinimalSubscriber : public rclcpp::Node
       std_msgs::msg::String status;
       char buf[255];
       snprintf(buf, 255,
-        "Sent to serial: [%u, %u, %u, %u, %u]",
-          m_servo_data.data[0],
+        "Sent to serial [AETR+Mode]: [%u, %u, %u, %u, %u]", // Messages Sent to Serial is in AETR+Mode format
           m_servo_data.data[1],
           m_servo_data.data[2],
+          m_servo_data.data[0],
           m_servo_data.data[3],
           m_servo_data.data[4]);
       status.data = std::string(buf);
       m_pub_status->publish(status);
 
-      std_msgs::msg::UInt16MultiArray joy_arr; //joy message to publish to Arduino
+      std_msgs::msg::UInt16MultiArray joy_arr; //joy array message to publish to Arduino in AETR mode
       joy_arr.data = {
-        m_servo_data.data[0],
-          m_servo_data.data[1],
+        m_servo_data.data[1],
           m_servo_data.data[2],
+          m_servo_data.data[0],
           m_servo_data.data[3],
           m_servo_data.data[4]};
       joy_pub_status->publish(joy_arr);
 
     }
-     void auto_callback(const sensor_msgs::msg::Joy::SharedPtr msg)
+     void auto_callback(const sensor_msgs::msg::Joy::SharedPtr msg) // Designs to take "AETR joy" and pack into Spektrum's PPM "TAER" format
     {
-      a_servo_data.data[0] = std::clamp(1000.0 * (msg->axes[0]) + 1000, 1000.0, 2000.0); // joy[0] from 0 to 1 in percentage
-      a_servo_data.data[1] = std::clamp(500.0 * msg->axes[1] + 1500, 1000.0, 2000.0); //
-      a_servo_data.data[2] = std::clamp(-500.0 * msg->axes[2] + 1500, 1000.0, 2000.0); //
-      a_servo_data.data[3] = std::clamp(500.0 * msg->axes[3] + 1500, 1000.0, 2000.0);
-      a_servo_data.data[4] = 1900.0; //std::clamp(msg->axes[4] + 1900, 1000.0f, 2000.0f); // should force it into stabilize mode
+      a_servo_data.data[0] = std::clamp(1000.0 * (msg->axes[2]) + 1000, 1000.0, 2000.0); // Throttle joy[2] from 0 to 1 in percentage
+      a_servo_data.data[1] = std::clamp(500.0 * msg->axes[0] + 1500, 1000.0, 2000.0); // Aileron
+      a_servo_data.data[2] = std::clamp(-500.0 * msg->axes[1] + 1500, 1000.0, 2000.0); // Elevator
+      a_servo_data.data[3] = std::clamp(500.0 * msg->axes[3] + 1500, 1000.0, 2000.0); // Rudder
+      a_servo_data.data[4] = 2000.0; //std::clamp(msg->axes[4] + 1900, 1000.0f, 2000.0f); // should force it into stabilize mode
     }
 
     // Member attributes
