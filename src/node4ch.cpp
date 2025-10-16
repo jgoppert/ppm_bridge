@@ -3,6 +3,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "std_msgs/msg/u_int16_multi_array.hpp"
 #include "sensor_msgs/msg/joy.hpp"
 #include <boost/asio.hpp> 
 using namespace boost;
@@ -34,6 +35,8 @@ class MinimalSubscriber : public rclcpp::Node
       a_subscription = this->create_subscription<sensor_msgs::msg::Joy>(
       "auto_joy_throttle", 10, std::bind(&MinimalSubscriber::auto_callback, this, _1));
       m_pub_status = this->create_publisher<std_msgs::msg::String>("status", 10);
+      joy_pub_status = this->create_publisher<std_msgs::msg::UInt16MultiArray>("joy_serial_status", 10);
+
 
       auto get_status =
       [this]() -> void
@@ -65,7 +68,7 @@ class MinimalSubscriber : public rclcpp::Node
 
         m_servo_data.data[0] = std::clamp(-500.0 * msg->axes[0] + 1500.0, 1000.0, 2000.0); // joy "+1" is zero throttle , joy "-1" is full throttle
         m_servo_data.data[1] = std::clamp(500.0 * msg->axes[1] + 1500.0, 1000.0, 2000.0); // joy "+1" is roll left, joy "-1" is roll right
-        m_servo_data.data[2] = std::clamp(500.0 * msg->axes[2] + 1500.0, 1000.0, 2000.0); // joy "+1" is elev up (pitch up), joy "-1" elev down (pitch down)
+        m_servo_data.data[2] = std::clamp(-500.0 * msg->axes[2] + 1500.0, 1000.0, 2000.0); // joy "+1" is elev up (pitch up), joy "-1" elev down (pitch down)
         m_servo_data.data[3] = std::clamp(500.0 * msg->axes[3] + 1500.0, 1000.0, 2000.0); // joy "+1" is rudder yaw left, joy "-1 is yaw right"
         m_servo_data.data[4] = std::clamp(1000.0 * msg->axes[4] + 2000.0, 1000.0, 2000.0);
         
@@ -118,22 +121,32 @@ class MinimalSubscriber : public rclcpp::Node
       std_msgs::msg::String status;
       char buf[255];
       snprintf(buf, 255,
-        "Sent to serial: [%u, %u, %u, %u, %u]",
-          m_servo_data.data[0],
+        "Sent to serial [AETR+Mode]: [%u, %u, %u, %u, %u]", // Messages Sent to Serial is in AETR+Mode format
           m_servo_data.data[1],
           m_servo_data.data[2],
+          m_servo_data.data[0],
           m_servo_data.data[3],
           m_servo_data.data[4]);
       status.data = std::string(buf);
       m_pub_status->publish(status);
+
+      std_msgs::msg::UInt16MultiArray joy_arr; //joy array message to publish to Arduino in AETR mode
+      joy_arr.data = {
+        m_servo_data.data[1],
+          m_servo_data.data[2],
+          m_servo_data.data[0],
+          m_servo_data.data[3],
+          m_servo_data.data[4]};
+      joy_pub_status->publish(joy_arr);
+
     }
-     void auto_callback(const sensor_msgs::msg::Joy::SharedPtr msg)
+     void auto_callback(const sensor_msgs::msg::Joy::SharedPtr msg) // Designs to take "AETR joy" and pack into Spektrum's PPM "TAER" format
     {
-      a_servo_data.data[0] = std::clamp(1000.0 * (msg->axes[0]) + 1000, 1000.0, 2000.0); // joy[0] from 0 to 1 in percentage
-      a_servo_data.data[1] = std::clamp(500.0 * msg->axes[1] + 1500, 1000.0, 2000.0); //
-      a_servo_data.data[2] = std::clamp(-500.0 * msg->axes[2] + 1500, 1000.0, 2000.0); // joy "+1.0" = elev down (pitch up)
-      a_servo_data.data[3] = std::clamp(500.0 * msg->axes[3] + 1500, 1000.0, 2000.0);
-      a_servo_data.data[4] = 1900.0; //std::clamp(msg->axes[4] + 1900, 1000.0f, 2000.0f); // should force it into stabilize mode
+      a_servo_data.data[0] = std::clamp(1000.0 * (msg->axes[2]) + 1000, 1000.0, 2000.0); // Throttle joy[2] from 0 to 1 in percentage
+      a_servo_data.data[1] = std::clamp(500.0 * msg->axes[0] + 1500, 1000.0, 2000.0); // Aileron
+      a_servo_data.data[2] = std::clamp(-500.0 * msg->axes[1] + 1500, 1000.0, 2000.0); // Elevator
+      a_servo_data.data[3] = std::clamp(500.0 * msg->axes[3] + 1500, 1000.0, 2000.0); // Rudder
+      a_servo_data.data[4] = 2000.0; //std::clamp(msg->axes[4] + 1900, 1000.0f, 2000.0f); // should force it into stabilize mode
     }
 
     // Member attributes
@@ -141,6 +154,8 @@ class MinimalSubscriber : public rclcpp::Node
     rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr a_subscription;
 
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr m_pub_status;
+    rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr joy_pub_status;
+
     asio::io_service m_io;
     asio::serial_port m_port;
     servo_data_t m_servo_data;
