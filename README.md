@@ -7,9 +7,9 @@ The node subscribes to command topics (aileron/elevator/throttle/rudder/mode), p
 
 | Stage | Component                          | Interface              | Purpose                              |
 |------:|------------------------------------|------------------------|--------------------------------------|
-| 1     | ROS 2 topic `/uav/auto_joy`        | Joy Msg  | AETR+Mode commands as a 5-elem joy msg |
+| 1     | ROS 2 topic `/uav/auto_joy` or `/uav/joy`      | Joy Msg  | AETR+Mode commands as a 5-elem joy msg |
 | 2     | `ppm_bridge_node`                  | ROS 2 ↔︎ serial        | Map command indices → PPM μs values    |
-| 3     | Serial link                        | `/dev/ttyACM0` 115200  | Send packed channel bytes            |
+| 3     | Serial link `/uav/joy_serial_status`                       | `/dev/ttyACM0` 115200  | Send packed channel bytes            |
 | 4     | Arduino Nano ESP32 (PPM encoder)   | PPM output pin         | Generate PPM frame at 22ms frame length                  |
 | 5     | External TX (Lemon RX DSM module)  | Trainer/PPM input      | RF to receiver on UAV           |
 
@@ -43,7 +43,9 @@ ros2 launch ppm_bridge cub_vehicle_bridge.launch.py
 
 | Topic name        | Message type               | Array size | Element order (index)                      | Accepted ranges / format                                                                 | Notes                                                                                              |
 |-------------------|----------------------------|------------|--------------------------------------------|-------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
-| `/uav/auto_joy`   | `std_msgs/Float32MultiArray` | 5          | `[0]=Aileron, [1]=Elevator, [2]=Throttle, [3]=Rudder, [4]=Mode` | Aileron/Elevator/Rudder: `[-1.0, +1.0]` • Throttle: `[0.0, 1.0]` • Mode: `{-1.0, 1.0}` | Default PPM order **AETR + Mode**. Values are linearly mapped to PPM μs (see index mapping below). |
+| `/uav/auto_joy`   | `sensor_msgs/msg/Joy` | 5          | `[0]=Aileron, [1]=Elevator, [2]=Throttle, [3]=Rudder, [4]=Mode` | Aileron/Elevator/Rudder: `[-1.0, +1.0]` • Throttle: `[0.0, 1.0]` • Mode: `{-1.0, 1.0}` | Default PPM order **AETR + Mode**. Values are linearly mapped to PPM μs (see index mapping below). |
+| `/uav/joy`   | `sensor_msgs/msg/Joy` | 5          | `[0]=Aileron, [1]=Elevator, [2]=Throttle, [3]=Rudder, [4]=Mode` | Aileron/Elevator/Rudder: `[-1.0, +1.0]` • Throttle: `[0.0, 1.0]` • Mode: `{-1.0, 1.0}` | Default PPM order **AETR + Mode**. Values are linearly mapped to PPM μs (see index mapping below). |
+| `/uav/joy_serial_status`   | `std_msgs/Float32MultiArray` | 5          | `[Aileron, Elevator, Throttle, Rudder, Mode]` | Aileron/Elevator/Throttle/Rudder: `[1000,2000]` | Set of 5 PWM signals to be parsed through serial port to Arduino|
 
 
 ## Index → PPM Mapping (AETR + Mode)
